@@ -52,3 +52,28 @@ git commit --amend
 ```
 
 Used to remove accidentally committed configuration changes.
+
+## Jenkins Agent Investigation
+
+### Findings
+
+- Jenkins agents were disconnected due to high Docker image build load
+- Disk usage exceeded 90%
+- Multiple concurrent builds exhausted executor capacity
+
+### Diagnostic Commands
+
+```bash
+docker system df
+
+df -h
+
+kubectl top nodes
+```
+
+### Fixes Applied
+
+- Added build timeout
+- Disabled concurrent builds
+- Added workspace cleanup
+- Introduced rollback automation

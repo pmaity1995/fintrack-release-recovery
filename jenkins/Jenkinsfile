@@ -1,56 +1,150 @@
 pipeline {
+
     agent any
 
     options {
-        timeout(time: 20, unit: 'MINUTES')
+        timeout(time: 15, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     environment {
-        AWS_REGION = 'eu-central-1'
-        ECR_REPO = 'fintrack-app'
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
+
+        PREVIOUS_TAG = "stable"
+
+        AWS_REGION = "eu-central-1"
+
+        APP_NAME = "account-service"
     }
 
     stages {
 
         stage('Checkout') {
+
             steps {
-                checkout scm
+
+                git branch: 'main',
+                url: 'https://github.com/pmaity1995/fintrack-release-recovery.git'
+
+                milestone()
             }
         }
 
-        stage('Build Docker Images') {
-            steps {
-                sh 'docker build -t account-service:${BUILD_NUMBER} -f docker/account-service.Dockerfile .'
-                sh 'docker build -t payment-service:${BUILD_NUMBER} -f docker/payment-service.Dockerfile .'
-            }
-        }
+        stage('Build Docker Image') {
 
-        stage('Push to ECR') {
             steps {
+
                 sh '''
-                aws ecr get-login-password --region $AWS_REGION | \
-                docker login --username AWS --password-stdin $ECR_REPO
+                echo "Building Docker image..."
+
+                docker build \
+                -t ${APP_NAME}:${IMAGE_TAG} \
+                -f docker/account-service.Dockerfile .
                 '''
             }
         }
 
-        stage('Deploy to EKS') {
+        stage('Secure Docker Login') {
+
             steps {
-                sh 'kubectl apply -f k8s/'
-                sh 'kubectl apply -f istio/'
+
+                withCredentials([
+                    string(credentialsId: 'docker-token', variable: 'TOKEN')
+                ]) {
+
+                    sh '''
+                    echo "Logging into Docker securely..."
+
+                    echo $TOKEN | docker login \
+                    -u barney1995 \
+                    --password-stdin
+                    '''
+                }
             }
         }
 
-        stage('Smoke Test') {
+        stage('Deploy Canary') {
+
             steps {
-                sh './scripts/healthcheck.sh'
+
+                retry(2) {
+
+                    sh '''
+                    echo "Deploying Kubernetes manifests..."
+
+                    kubectl apply -f k8s/account-deployment.yaml
+
+                    kubectl apply -f istio/virtualservice.yaml
+                    '''
+                }
+            }
+        }
+
+        stage('Health Check') {
+
+            steps {
+
+                script {
+
+                    echo "Running health checks..."
+
+                    def STATUS = sh(
+                        script: """
+                        curl -s -o /dev/null \
+                        -w '%{http_code}' \
+                        http://localhost:8080/health
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    echo "HTTP STATUS: ${STATUS}"
+
+                    if (STATUS.startsWith("5")) {
+
+                        echo "5XX detected. Triggering rollback..."
+
+                        sh "./scripts/rollback.sh ${PREVIOUS_TAG}"
+
+                        error("Deployment failed due to 5XX errors")
+                    }
+                }
             }
         }
     }
 
     post {
+
+        success {
+
+            echo 'Deployment completed successfully'
+        }
+
         failure {
-            sh './scripts/rollback.sh'
+
+            echo 'Deployment failed'
+
+            mail to: 'devops-team@fintrack.com',
+            subject: 'Production Deployment Failed',
+            body: '''
+Deployment failed during health validation.
+
+Automatic rollback was triggered successfully.
+
+Please review:
+- Jenkins logs
+- Kubernetes events
+- Istio routing
+- Pod health
+'''
+        }
+
+        always {
+
+            cleanWs()
+
+            echo 'Workspace cleaned successfully'
         }
     }
 }
