@@ -1,0 +1,10 @@
+#!/bin/bash
+
+echo "Scanning for secrets..."
+
+if git diff --cached | grep -Ei "password|secret|token|apikey"; then
+  echo "Potential secret detected!"
+  exit 1
+fi
+
+echo "No secrets found."

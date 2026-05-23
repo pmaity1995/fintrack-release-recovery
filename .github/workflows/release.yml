@@ -1,0 +1,17 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'release/*'
+
+jobs:
+
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build
+      run: echo "Building release..."
