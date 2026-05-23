@@ -28,7 +28,7 @@ pipeline {
                 git branch: 'main',
                 url: 'https://github.com/pmaity1995/fintrack-release-recovery.git'
 
-                milestone()
+                milestone ordinal: 1
             }
         }
 
