@@ -1,0 +1,14 @@
+groups:
+- name: fintrack-alerts
+
+  rules:
+
+  - alert: HighMemoryUsage
+    expr: container_memory_usage_bytes > 90
+    for: 2m
+
+  - alert: PodCrashLoop
+    expr: increase(kube_pod_container_status_restarts_total[5m]) > 5
+
+  - alert: High5xxErrors
+    expr: rate(istio_requests_total{response_code=~"5.."}[5m]) > 0.05

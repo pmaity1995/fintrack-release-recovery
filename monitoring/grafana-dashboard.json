@@ -1,0 +1,13 @@
+{
+    "title": "FinTrack Dashboard",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "CPU Usage"
+      },
+      {
+        "type": "graph",
+        "title": "Memory Usage"
+      }
+    ]
+  }
