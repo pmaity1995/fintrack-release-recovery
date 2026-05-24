@@ -74,9 +74,9 @@ pipeline {
                     sh '''
                     echo "Deploying Kubernetes manifests..."
 
-                    kubectl apply -f k8s/account-deployment.yaml
+                    kubectl apply --validate=false -f k8s/account-deployment.yaml
 
-                    kubectl apply -f istio/virtualservice.yaml
+                    kubectl apply --validate=false -f istio/virtualservice.yaml
                     '''
                 }
             }
