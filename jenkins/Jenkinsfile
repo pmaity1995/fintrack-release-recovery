@@ -59,7 +59,7 @@ pipeline {
 
                     echo $TOKEN | docker login \
                     -u barney1995 \
-                    --dummy123-stdin
+                    --admin-stdin
                     '''
                 }
             }
